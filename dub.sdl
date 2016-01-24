@@ -1,0 +1,7 @@
+name "flod-curl"
+description "cURL bindings for *flod*"
+license "MIT"
+copyright "Copyright © 2016, Adrian Matoga"
+authors "Adrian Matoga"
+dependency "flod" path="../flod"
+libs "curl" platform="posix"
