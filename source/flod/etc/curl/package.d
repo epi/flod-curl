@@ -1,6 +1,9 @@
 module flod.etc.curl;
 
-struct CurlReader(Sink) {
+import flod.traits : satisfies, isPushSource;
+
+@satisfies!(isPushSource, CurlReader)
+private struct CurlReader(Sink) {
 	Sink sink;
 
 	import etc.c.curl;
@@ -10,15 +13,11 @@ struct CurlReader(Sink) {
 	const(char)* url;
 	Throwable e;
 
-	this(string url)
+	this()(auto ref Sink sink, string url)
 	{
+		import flod.meta : moveIfNonCopyable;
+		this.sink = moveIfNonCopyable(sink);
 		this.url = url.toStringz();
-	}
-
-	void open(string url)
-	{
-		this.url = url.toStringz();
-		sink.open();
 	}
 
 	private extern(C)
@@ -27,7 +26,6 @@ struct CurlReader(Sink) {
 		CurlReader* self = cast(CurlReader*) obj;
 		size_t written;
 		try {
-			stderr.writefln("mywrite %s %s", ms, nm);
 			written = self.sink.push((cast(const(ubyte)*) buf)[0 .. ms * nm]);
 		} catch (Throwable e) {
 			self.e = e;
@@ -41,12 +39,30 @@ struct CurlReader(Sink) {
 		curl_easy_setopt(curl, CurlOption.url, url);
 		curl_easy_setopt(curl, CurlOption.writefunction, &mywrite);
 		curl_easy_setopt(curl, CurlOption.file, &this);
-		stderr.writefln("calling curl_easy_perform");
 		auto err = curl_easy_perform(curl);
 		if (err != CurlError.ok)
-			stderr.writefln("curlerror: %s", err);
 		curl_easy_cleanup(curl);
 		if (e)
 			throw e;
 	}
+}
+
+unittest {
+	import std.file : write, remove;
+	import std.uuid : randomUUID;
+	import flod.pipeline;
+	struct PushSink {
+		size_t push(T)(const(T)[] buf) { return buf.length; }
+	}
+	auto name = "unittest-" ~ randomUUID().toString();
+	write(name, new ubyte[1048576]);
+	scope(exit) remove(name);
+	download("file:///etc/passwd").pipe!PushSink.run();
+}
+
+auto download(string url)
+{
+	import flod.pipeline;
+	static assert(isPipeline!(typeof(pipe!CurlReader(url))));
+	return pipe!CurlReader(url);
 }
