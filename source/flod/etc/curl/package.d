@@ -1,8 +1,8 @@
 module flod.etc.curl;
 
-import flod.traits : satisfies, isPushSource;
+import flod.traits;
 
-@satisfies!(isPushSource, CurlReader)
+@pushSource!ubyte
 private struct CurlReader(Sink) {
 	Sink sink;
 
@@ -13,10 +13,8 @@ private struct CurlReader(Sink) {
 	const(char)* url;
 	Throwable e;
 
-	this()(auto ref Sink sink, string url)
+	this()(string url)
 	{
-		import flod.meta : moveIfNonCopyable;
-		this.sink = moveIfNonCopyable(sink);
 		this.url = url.toStringz();
 	}
 
@@ -47,17 +45,19 @@ private struct CurlReader(Sink) {
 	}
 }
 
+	@pushSink!ubyte
+	static struct PushSink {
+		size_t push(const(ubyte)[] buf) { return buf.length; }
+	}
+
 unittest {
 	import std.file : write, remove;
 	import std.uuid : randomUUID;
 	import flod.pipeline;
-	struct PushSink {
-		size_t push(T)(const(T)[] buf) { return buf.length; }
-	}
 	auto name = "unittest-" ~ randomUUID().toString();
 	write(name, new ubyte[1048576]);
 	scope(exit) remove(name);
-	download("file:///etc/passwd").pipe!PushSink.run();
+	download("file:///etc/passwd").pipe!PushSink;
 }
 
 auto download(string url)
