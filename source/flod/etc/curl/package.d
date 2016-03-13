@@ -8,7 +8,7 @@ private struct CurlReader(Sink) {
 
 	import etc.c.curl;
 	import std.exception : enforce;
-	import std.string : toStringz;
+	import std.string : toStringz, format, fromStringz;
 
 	const(char)* url;
 	Throwable e;
@@ -33,15 +33,15 @@ private struct CurlReader(Sink) {
 
 	void run()
 	{
-		CURL* curl = enforce(curl_easy_init(), "failed to init curl");
+		CURL* curl = enforce(curl_easy_init(), "Failed to init libcurl");
 		curl_easy_setopt(curl, CurlOption.url, url);
 		curl_easy_setopt(curl, CurlOption.writefunction, &mywrite);
 		curl_easy_setopt(curl, CurlOption.file, &this);
 		auto err = curl_easy_perform(curl);
-		if (err != CurlError.ok)
-		curl_easy_cleanup(curl);
+		scope(exit) curl_easy_cleanup(curl);
 		if (e)
 			throw e;
+		enforce(err == CurlError.ok, format("libcurl: (%d) %s", err, fromStringz(curl_easy_strerror(err))));
 	}
 }
 
