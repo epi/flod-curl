@@ -3,8 +3,8 @@ module flod.etc.curl;
 import flod.traits;
 
 @pushSource!ubyte
-private struct CurlReader(Sink) {
-	Sink sink;
+private struct CurlReader(alias Context, A...) {
+	mixin Context!A;
 
 	import etc.c.curl;
 	import std.exception : enforce;
@@ -17,6 +17,8 @@ private struct CurlReader(Sink) {
 	{
 		this.url = url.toStringz();
 	}
+
+	pragma(msg, __traits(allMembers, typeof(this)));
 
 	private extern(C)
 	static size_t mywrite(const(void)* buf, size_t ms, size_t nm, void* obj)
@@ -45,24 +47,22 @@ private struct CurlReader(Sink) {
 	}
 }
 
-	@pushSink!ubyte
-	static struct PushSink {
-		size_t push(const(ubyte)[] buf) { return buf.length; }
-	}
-
-unittest {
-	import std.file : write, remove;
-	import std.uuid : randomUUID;
-	import flod.pipeline;
-	auto name = "unittest-" ~ randomUUID().toString();
-	write(name, new ubyte[1048576]);
-	scope(exit) remove(name);
-	download("file:///etc/passwd").pipe!PushSink;
-}
-
 auto download(string url)
 {
 	import flod.pipeline;
 	static assert(isPipeline!(typeof(pipe!CurlReader(url))));
 	return pipe!CurlReader(url);
+}
+
+unittest {
+	import std.array : appender;
+	import std.file : write, remove;
+	import std.uuid : randomUUID;
+	import flod : copy;
+	auto name = "unittest-" ~ randomUUID().toString();
+	write(name, new ubyte[1048576]);
+	scope(exit) remove(name);
+	auto app = appender!(ubyte[]);
+	download("file://" ~ name).copy(app);
+	assert(app.data[] == new ubyte[1048576]);
 }
