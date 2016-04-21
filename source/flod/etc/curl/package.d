@@ -2,7 +2,7 @@ module flod.etc.curl;
 
 import flod.traits;
 
-@pushSource!ubyte
+@source!ubyte(Method.push)
 private struct CurlReader(alias Context, A...) {
 	mixin Context!A;
 
@@ -50,7 +50,7 @@ private struct CurlReader(alias Context, A...) {
 auto download(string url)
 {
 	import flod.pipeline;
-	static assert(isPipeline!(typeof(pipe!CurlReader(url))));
+	static assert(isSchema!(typeof(pipe!CurlReader(url))));
 	return pipe!CurlReader(url);
 }
 
